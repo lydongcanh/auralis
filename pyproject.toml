@@ -8,10 +8,11 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "fastapi[standard] (>=0.118.3,<0.119.0)"
 ]
 
 [tool.poetry]
-packages = [{include = "auralis", from = "src"}]
+packages = [{include = "service_host", from = "src"}]
 
 
 [build-system]
