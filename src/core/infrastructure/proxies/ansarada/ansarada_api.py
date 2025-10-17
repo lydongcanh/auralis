@@ -18,6 +18,7 @@ class AnsaradaApi:
                             dataRoom {{
                                 id
                                 displayName
+                                status
                             }}
                         }}
                     }}

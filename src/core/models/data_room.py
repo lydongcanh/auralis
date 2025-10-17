@@ -1,11 +1,6 @@
-from pydantic import BaseModel
-from datetime import datetime
-
+from core.models.base_entity import BaseEntity
 from core.models.data_room_source import DataRoomSource
 
-class DataRoom(BaseModel):
-    id: str
+class DataRoom(BaseEntity):
     name: str
-    created_at: datetime
-    updated_at: datetime
     source: DataRoomSource
