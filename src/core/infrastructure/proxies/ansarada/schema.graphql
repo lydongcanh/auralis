@@ -1,0 +1,975 @@
+"""Represents a data room"""
+type DataRoom {
+  """The unique identifier for the DataRoom."""
+  id: ID!
+
+  """The status of the DataRoom."""
+  status: DataRoomStatus!
+
+  """The display name of the DataRoom."""
+  displayName: String!
+
+  """The project name associated with the DataRoom."""
+  projectName: String!
+
+  """Indicates whether the DataRoom is a demo version."""
+  isDemo: Boolean!
+}
+
+"""
+Represents a file entity that provides basic metadata such as file size and extension. This type is typically
+used to describe uploaded or stored files in the system.
+"""
+type File {
+  """The file extension (e.g., pdf, docx, xlsx)."""
+  extension: String
+
+  """The size of the file in bytes."""
+  size: Float!
+}
+
+type Query {
+  """Retrieves a specific DataRoom document by its ID."""
+  dataRoomDocument(id: ID!): DataRoomDocument
+
+  """
+  Retrieves the status and details of a document download request by its unique ID. This is used to track
+  the progress of an asynchronous download operation.
+  
+  Clients should use this query to poll the status of a download after initiating it via
+  initiateDataRoomDocumentDownload. The response includes the current status , timestamps, and the
+  secure downloadPresignedUrl once the document is ready.
+  """
+  dataRoomDocumentDownload(
+    """The unique identifier of the download request."""
+    id: ID!
+  ): DataRoomDocumentDownload
+
+  """
+  Retrieves the status and details of a document upload request by its unique ID. This is used to track
+  progress through the upload pipeline — from initiation to processing completion.
+  
+  Clients should use this query to poll the upload status after initiating
+  an upload (either single-part or multipart).
+  
+  The response includes the current DocumentTransferStatus, associated timestamps, and a reference
+  to the resulting document (if available).
+  """
+  dataRoomDocumentUpload(
+    """The unique identifier of the upload session."""
+    id: ID!
+  ): DataRoomDocumentUpload
+
+  """
+  Retrieves the document index for a specific Data Room. The index provides a structured, hierarchical
+  view of documents and folders within the Data Room, enabling clients to browse or display its
+  contents efficiently.
+  The index supports pagination and filtering by folder ID via the items field. Use this query to load
+  the document tree for given dataRoomId.
+  """
+  dataRoomDocumentIndex(
+    """
+    The unique identifier of the Data Room whose document index should be retrieved.
+    """
+    dataRoomId: ID!
+  ): DataRoomDocumentIndex
+
+  """Returns the currently logged-in user's profile."""
+  me: UserProfile
+
+  """Retrieves a DataRoom by its ID."""
+  dataRoom(id: ID!): DataRoom!
+}
+
+"""The `DateTime` scalar represents an ISO-8601 compliant date time type."""
+scalar DateTime
+
+"""
+Defines the contract for items in the DataRoom document index.
+Base interface for both documents and folders in the indexing system.
+"""
+interface IDataRoomDocumentIndexItem {
+  """
+  The current status of the index item, indicating whether it is enabled or disabled.
+  """
+  status: DataRoomDocumentIndexStatus!
+
+  """The display name of the item as shown in the DataRoom."""
+  name: String!
+
+  """
+  An optional index or reference number for ordering or display (e.g., "1.2.1").
+  """
+  number: String
+
+  """The ID of the parent folder. null if this is a root-level folder."""
+  parentId: ID
+
+  """
+  Date when document or folder was first added to the DataRoom.
+  Returned in UTC time zone.
+  
+  Only available for roles with access to Manage Documents, such as Administrator, Publisher and Viewer.
+  For other roles, such as Guest and Limited Viewer this field will always be null.
+  """
+  createdDate: DateTime
+
+  """
+  Date when document or folder was last modified.
+  Modification can include changes to any of the document/folder fields, such as content, name, number, enabled status or whenever a new file is uploaded.
+  Returned in UTC time zone.
+  
+  For folders:
+  Only available for roles with access to Manage Documents, such as Administrator, Publisher and Viewer.
+  For other roles, such as Guest and Limited Viewer this field will always be null.
+  
+  For documents:
+  Guaranteed to be present for roles with access to Manage Documents, such as Administrator, Publisher and Viewer.
+  For other roles, such as Guest and Limited Viewer this field will return either of:
+  * Date the document was last enabled
+  * Date of last file upload
+  * null
+  What data would be returned depends on the settings configured by Administrator for the DataRoom.
+  """
+  lastModifiedDate: DateTime
+}
+
+"""
+Returned when the system successfully completes the multi-part upload for a Data Room document.
+
+This is the first step in the document upload pipeline. It means the system was able to assemble all
+uploaded parts into a single file and the document is now ready for further processing—like
+virus scanning, indexing, and applying security settings.
+
+The document won’t be visible in the Data Room until these steps are done.
+"""
+type CompleteDataRoomDocumentMultiPartUploadPayload {
+  """
+  The upload object representing the uploading process. It includes the current status and other metadata.
+  Use this to track progress through the rest of the upload pipeline.
+  """
+  upload: DataRoomDocumentUpload
+}
+
+"""
+Represents a multi-step, asynchronous operation to prepare and deliver a downloadable
+version of a document from the Data Room. The download process may involve tasks such as
+permission validation, watermarking, encryption, and secure URL generation.
+As a result, the downloadable file is not immediately available upon request. Clients must
+monitor the status field to track the progress of the request, and
+the downloadPresignedUrl field will remain null until the document is fully prepared.
+If an error occurs, the failureReason will indicate the cause.
+"""
+type DataRoomDocumentDownload {
+  """The document that is being prepared for download."""
+  document: DataRoomDocument
+
+  """Unique identifier for the document download request."""
+  id: ID!
+
+  """
+  A time-limited, secure URL to download the prepared document. This field is null while
+  the document is still processing or if the operation fails.
+  """
+  downloadPresignedUrl: String
+
+  """Current status of the document download process."""
+  status: DocumentTransferStatus!
+
+  """Timestamp indicating when the download request was created."""
+  createdAt: DateTime!
+
+  """
+  Timestamp of the latest update to the download request (e.g., when status changes).
+  """
+  updatedAt: DateTime!
+
+  """
+  Optional timestamp after which the download URL will expire and no longer be usable.
+  """
+  expiresAt: DateTime
+
+  """
+  Explanation of why the download failed, if applicable (e.g., missing file, insufficient permissions).
+  """
+  failureReason: String
+}
+
+"""
+Represents the indexed structure of documents and folders within
+a specific Data Room, allowing clients to query for documents and folders with pagination
+and optional folder-based filtering. This type enables efficient exploration of the Data Room’s contents
+in a structured, navigable format.
+"""
+type DataRoomDocumentIndex {
+  """The DataRoom associated with this document index."""
+  dataRoom: DataRoom!
+
+  """
+  A paginated list of document index items (documents or folders) within the Data Room.
+  """
+  items(
+    """
+    Filter the index to specific folders. If not provided, return root-level items.
+    """
+    folderIds: [ID!]
+
+    """Returns the first _n_ elements from the list."""
+    first: Int
+
+    """Returns the elements in the list that come after the specified cursor."""
+    after: String
+  ): DataRoomDocumentIndexItemsConnection
+
+  """The unique identifier for the document index."""
+  id: ID!
+}
+
+"""A connection to a list of items."""
+type DataRoomDocumentIndexItemsConnection {
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """A list of edges."""
+  edges: [DataRoomDocumentIndexItemsEdge!]
+
+  """A flattened list of the nodes."""
+  nodes: [IDataRoomDocumentIndexItem!]
+}
+
+"""An edge in a connection."""
+type DataRoomDocumentIndexItemsEdge {
+  """A cursor for use in pagination."""
+  cursor: String!
+
+  """The item at the end of the edge."""
+  node: IDataRoomDocumentIndexItem!
+}
+
+"""
+Specifies the set of actions a user is allowed to perform on a document within the Data Room. These permissions
+are typically determined by the document’s assigned security policy and the user’s role or access level.
+They influence how the document can be viewed, interacted with, and tracked.
+"""
+type DataRoomDocumentPermissions {
+  """Indicates whether printing of the document is allowed."""
+  allowPrinting: Boolean!
+
+  """Indicates whether editing of the document is allowed."""
+  allowEditing: Boolean!
+
+  """Indicates whether copying content from the document is allowed."""
+  allowCopying: Boolean!
+
+  """Indicates whether saving the document is allowed."""
+  allowSaving: Boolean!
+
+  """Indicates whether the document is being tracked."""
+  tracking: Boolean!
+}
+
+"""
+Describes the security configuration applied to a document in the Data Room. This includes
+whether the document is protected by enhanced controls and the specific actions that are
+allowed or restricted for the user
+
+The security settings enforce how a document can be accessed and interacted
+with—particularly by external users. A document marked as isSecure: true typically applies
+restrictions such as view-only mode, watermarks, or audit tracking. The nested permissions
+field provides a detailed breakdown of what actions (e.g., printing, copying) are allowed.
+"""
+type DataRoomDocumentSecurity {
+  """
+  Indicates whether enhanced security controls are applied to the document. When true, the document
+  is typically subject to restrictions like watermarks, session tracking, or disallowed downloads.
+  """
+  isSecure: Boolean!
+
+  """
+  Specifies the granular permissions that define what the user can do with the document,
+  such as printing, editing, saving, or copying.
+  """
+  permissions: DataRoomDocumentPermissions!
+}
+
+"""
+Represents a multi-step, asynchronous process for uploading a document into the Data Room. After a file
+is uploaded (e.g., via multi-part upload or single upload), it goes through several processing stages
+such as virus scanning, metadata extraction, and indexing before it becomes fully available.
+
+This object helps clients track the status of the upload. If the process is successful, the associated
+document will be available in the Data Room. If it fails, failureReason will explain why.
+"""
+type DataRoomDocumentUpload {
+  """
+  The document created from the uploaded file. May be null if the upload is
+  still in progress or has failed.
+  """
+  document: DataRoomDocument
+
+  """The unique identifier for the document upload operation."""
+  id: ID!
+
+  """The current status of the document upload."""
+  status: DocumentTransferStatus!
+
+  """Timestamp when the upload process was initiated."""
+  createdAt: DateTime!
+
+  """Timestamp of the latest update to the upload status."""
+  updatedAt: DateTime!
+
+  """Optional timestamp when the upload request or session expires."""
+  expiresAt: DateTime
+
+  """
+  If the upload fails, this field provides the error message or failure reason.
+  """
+  failureReason: String
+}
+
+"""
+This is a key part of the multipart upload flow, enabling clients to upload parts directly to storage (e.g., S3)
+without going through the application server.
+"""
+type GeneratePresignedUrlsForDataRoomDocumentMultiPartUploadPayload {
+  """
+  A list of pre-signed URLs for uploading individual parts. Each item includes both the URL
+  and the associated partNumber, allowing clients to match uploads to the correct sequence in
+  the multipart upload process.
+  """
+  uploadPresignedUrls: [MultipartUploadUrl!]!
+}
+
+"""
+Represents the response payload returned after
+initiating a document download from the Data Room. It contains
+a reference to the DataRoomDocumentDownload object, which can be monitored
+for progress and result.
+"""
+type InitiateDataRoomDocumentDownloadPayload {
+  """
+  The download request object containing status, timestamps, and eventually
+  the secure URL to download the document. May be null if the initiation
+  fails unexpectedly.
+  """
+  download: DataRoomDocumentDownload
+}
+
+"""
+Returned when initiating a multipart upload for a document in the Data Room. This payload provides
+the necessary information to begin uploading file parts, including the upload session metadata and the total
+number of expected parts.
+
+This is the first step in the multipart upload flow. It includes an upload object for tracking the overall
+upload status and a totalParts value used to divide the file for chunked uploads.
+
+To upload the file parts, clients must call the generatePresignedUrlsForDataRoomDocumentMultiPartUpload mutation, passing
+the upload.id and desired part numbers. This returns secure URLs that can be used to upload each chunk
+directly to storage.
+"""
+type InitiateDataRoomDocumentMultiPartUploadPayload {
+  """
+  The upload session object representing the initiated multipart upload. Use this to track
+  upload progress and to complete the upload once all parts are submitted.
+  """
+  upload: DataRoomDocumentUpload
+
+  """
+  The total number of parts the file is divided into, based on the file size and chunk size. Clients must
+  use this to manage part uploads correctly.
+  """
+  totalParts: Int!
+}
+
+"""
+Returned when starting a single-part upload for a document in the Data Room. This response provides
+both the upload session metadata and a secure pre-signed URL that the client can use to upload the document
+directly to storage.
+
+This marks the beginning of the upload pipeline. After the file is uploaded, the system continues with
+internal processing (e.g., virus scan, indexing) before the document becomes fully available.
+"""
+type InitiateDataRoomDocumentUploadPayload {
+  """
+  The upload object representing the initiated upload session. Use this to track
+  the upload status and final outcome.
+  """
+  upload: DataRoomDocumentUpload!
+
+  """The pre-signed URL for uploading the document."""
+  uploadPresignedUrl: String!
+}
+
+"""Represents a pre-signed URL for a part in a multipart upload process."""
+type MultipartUploadUrl {
+  """The number identifying this part in the multipart upload sequence."""
+  partNumber: Int!
+
+  """The pre-signed URL used to upload this specific part."""
+  presignedUrl: URL!
+}
+
+type Mutation {
+  """
+  Initiates the asynchronous download process for a document. This mutation creates a download request and
+  triggers the system to prepare the file (e.g., perform permission checks, apply watermarking, encryption, etc.).
+  
+  The document is not immediately available. Clients must poll the status of the download
+  using the dataRoomDocumentDownload(id: ID!) query until the DocumentTransferStatus becomes either:
+  
+  COMPLETED — indicating the downloadPresignedUrl is ready for use.
+  FAILED — indicating the request could not be fulfilled (see failureReason for details).
+  """
+  initiateDataRoomDocumentDownload(
+    """The input containing the document ID to download."""
+    input: InitiateDataRoomDocumentDownloadInput!
+  ): InitiateDataRoomDocumentDownloadPayload
+
+  """
+  Initiates the single-part upload process for a document. This mutation sets up an upload session and returns
+  an upload object, along with a pre-signed URL that can be used to upload the file directly to storage.
+  
+  After the file is uploaded, it enters a processing phase (e.g., virus scanning, indexing). The document
+  becomes available in the Data Room only after this phase completes.
+  
+  To track the status of the upload, clients should poll the dataRoomDocumentUpload(id: ID!) query
+  until the upload reaches either:
+  
+  COMPLETED – the document is processed and available.
+  FAILED – the upload or processing encountered an error.
+  """
+  initiateDataRoomDocumentUpload(
+    """Input containing the Data Room ID, optional folder ID, and file name."""
+    input: InitiateDataRoomDocumentUploadInput!
+  ): InitiateDataRoomDocumentUploadPayload
+
+  """
+  Initiates a multipart upload for a large document. This mutation starts the upload session and calculates
+  how the file will be split into multiple parts (chunks), preparing it for chunked uploading to storage.
+  
+  To upload file chunks, the client must then call the generatePresignedUrlsForDataRoomDocumentMultiPartUpload
+  mutation with the upload.id and requested part numbers. These secure pre-signed URLs allow the client
+  to upload each part directly to storage.
+  
+  After all parts are uploaded, the upload must be finalized using completeDataRoomDocumentMultiPartUpload.
+  
+  To monitor the overall status, clients can poll the dataRoomDocumentUpload(id: ID!) query
+  until the upload reaches:
+  
+  COMPLETED: The document is processed and available.
+  FAILED: The upload or post-processing failed.
+  """
+  initiateDataRoomDocumentMultiPartUpload(
+    """
+    Input including the Data Room ID, optional folder ID, file name, total size,
+    and optional chunk size.
+    """
+    input: InitiateDataRoomDocumentMultiPartUploadInput!
+  ): InitiateDataRoomDocumentMultiPartUploadPayload
+
+  """
+  Generates pre-signed URLs for uploading specific parts of a document in a multipart upload session. This allows
+  clients to upload large files in smaller chunks, improving reliability, performance,
+  and resumability of uploads.
+  """
+  generatePresignedUrlsForDataRoomDocumentMultiPartUpload(
+    """
+    Input specifying the upload session ID and the range of part numbers
+    to generate URLs for.
+    """
+    input: GeneratePresignedUrlsForDataRoomDocumentMultiPartUploadInput!
+  ): GeneratePresignedUrlsForDataRoomDocumentMultiPartUploadPayload
+
+  """
+  Completes a multipart upload for a document by submitting the upload session ID and metadata about each
+  successfully uploaded part. This signals the system to assemble the parts into a single file and
+  begin post-upload processing.
+  
+  This is a required step in the multipart upload flow. Only after successful completion can the system
+  process the file (e.g., virus scanning, indexing, applying security). The document will not appear in the
+  Data Room until this processing is finished.
+  
+  After calling this mutation, clients should poll the dataRoomDocumentUpload(id: ID!) query to track
+  progress until the upload reaches COMPLETED or FAILED.
+  
+  - COMPLETED: The document is processed and available.
+  - FAILED: The upload or post-processing failed.
+  """
+  completeDataRoomDocumentMultiPartUpload(
+    """
+    Contains the multipart upload session ID and a list of completed parts with their
+    partNumber and eTag.
+    """
+    input: CompleteDataRoomDocumentMultiPartUploadInput!
+  ): CompleteDataRoomDocumentMultiPartUploadPayload
+}
+
+"""Information about pagination in a connection."""
+type PageInfo {
+  """
+  Indicates whether more edges exist following the set defined by the clients arguments.
+  """
+  hasNextPage: Boolean!
+
+  """
+  Indicates whether more edges exist prior the set defined by the clients arguments.
+  """
+  hasPreviousPage: Boolean!
+
+  """When paginating backwards, the cursor to continue."""
+  startCursor: String
+
+  """When paginating forwards, the cursor to continue."""
+  endCursor: String
+}
+
+"""
+Used to finalize a multi-part document upload to the Data Room. After all individual parts have been successfully
+uploaded, this input is passed to a mutation to signal completion, allowing the system to assemble
+the full document.
+"""
+input CompleteDataRoomDocumentMultiPartUploadInput {
+  """
+  The upload session ID associated with the document being uploaded. This ID is typically returned by the
+  upload initiation mutation.
+  """
+  id: ID!
+
+  """
+  A list of uploaded parts, each including a part number and an ETag (or similar identifier). All parts must
+  be present and correctly ordered for successful completion.
+  """
+  parts: [CompletedUploadPartInput!]!
+}
+
+"""
+Represents a single uploaded part in a multi-part upload process.
+This input is used when finalizing the upload by telling the system how
+to reassemble the uploaded file.
+"""
+input CompletedUploadPartInput {
+  """
+  The part number of the uploaded chunk. This must match the part number used
+  during the upload phase.
+  """
+  partNumber: Int!
+
+  """
+  The entity tag (ETag) returned by the storage service (e.g., S3) for
+  this part. It is used to validate the integrity of the uploaded data.
+  """
+  eTag: String!
+}
+
+"""
+Used to request pre-signed URLs for uploading specific parts of a document in a multipart upload operation.
+This allows clients to upload document chunks directly to storage in parallel or in sequence. This input is part of
+the multipart upload flow and enables clients to specify which part numbers they need URLs for, supporting
+efficient and resumable chunked uploads.
+"""
+input GeneratePresignedUrlsForDataRoomDocumentMultiPartUploadInput {
+  """
+  The unique identifier of the multipart upload session. This ID is required to associate the part uploads
+  with the correct in-progress document upload.
+  """
+  id: ID!
+
+  """
+  Specifies the range or list of part numbers for which the client is requesting pre-signed upload URLs.
+  This allows for flexible and targeted chunk uploading (e.g., to retry failed parts or upload in parallel).
+  """
+  partNumbers: MultiPartUploadPartNumbersInput
+}
+
+"""
+Used to initiate the asynchronous process of preparing a document
+from the Data Room for download. This input is passed to a mutation
+that triggers the download generation workflow.
+"""
+input InitiateDataRoomDocumentDownloadInput {
+  """
+  The unique identifier of the document to be downloaded. This ID should refer to a
+  valid DataRoomDocument. The system will validate access permissions before beginning
+  the download preparation.
+  """
+  documentId: ID!
+}
+
+"""
+Used to initiate a multipart upload for a large document in a Data Room. Multipart uploads are designed
+for large files and enable uploading in smaller chunks to improve reliability and performance.
+
+This input defines the upload context, file metadata, and optional chunking behavior. After initiation,
+clients will receive an upload session ID used in subsequent upload steps.
+"""
+input InitiateDataRoomDocumentMultiPartUploadInput {
+  """The ID of the Data Room where the document will be uploaded."""
+  dataRoomId: ID!
+
+  """
+  (Optional) The ID of the folder inside the Data Room where the document will be placed. If omitted, the file
+  will be uploaded to the root directory.
+  """
+  folderId: ID
+
+  """The name of the file being uploaded."""
+  fileName: String!
+
+  """The size of the file being uploaded in bytes."""
+  fileSize: Long!
+
+  """
+  Size of each upload chunk in bytes. Must be between 5 MB and 500 MB. If not provided, a default chunk size
+  will be applied.
+  """
+  chunkSize: Long
+}
+
+"""
+Starts a single-part upload for a document in a Data Room — typically used for smaller files that don’t
+require chunked uploads. This input defines where the file will be stored and includes the file name.
+
+Once initiated, the system returns a secure, pre-signed URL that the client can use
+to upload the entire file in one go.
+"""
+input InitiateDataRoomDocumentUploadInput {
+  """
+  The unique identifier for the DataRoom where the document will be uploaded.
+  """
+  dataRoomId: ID!
+
+  """
+  The optional identifier for the folder within the DataRoom where the document will be uploaded.
+  If not provided, the document will be uploaded to the root of the document index.
+  """
+  folderId: ID
+
+  """The name of the file being uploaded."""
+  fileName: String!
+}
+
+"""
+Defines a range of part numbers for multipart document uploads.
+Used to request pre-signed URLs for a specific range of parts when uploading large files.
+Helps optimize the upload process by allowing batch requests for multiple parts.
+"""
+input MultiPartUploadPartNumbersInput {
+  """The starting part number in the range."""
+  from: Int!
+
+  """The number of parts to include in the range."""
+  count: Int!
+}
+
+"""
+Indicates the publication and visibility status of a document or
+folder within the Data Room index, specifically from the perspective of
+external users.
+"""
+enum DataRoomDocumentIndexStatus {
+  """
+  The item is published and accessible to external users. It will
+  appear in their view of the Data Room index and can be opened or
+  downloaded based on permissions.
+  """
+  ENABLED
+
+  """
+  The item is not published and is hidden from external users. It cannot
+  be accessed, downloaded, or shared with extrenal teams.
+  """
+  DISABLED
+}
+
+"""
+Represents the current status of a document transfer operation, which could be an upload or a download.
+This status tracks the entire lifecycle of the transfer process, from initiation to completion or failure.
+"""
+enum DocumentTransferStatus {
+  """
+  The transfer request has been created but the actual upload or download has not started yet.
+  """
+  INITIATED
+
+  """
+  The document is currently being uploaded. This applies only to upload operations.
+  """
+  UPLOADING
+
+  """
+  The document is being processed after upload (e.g., virus scanning, watermarking, indexing). This
+  applies primarily to uploads.
+  """
+  PROCESSING
+
+  """
+  The transfer has finished successfully. The document is now
+  available (downloaded or fully uploaded and processed).
+  """
+  COMPLETED
+
+  """
+  The transfer encountered an error and did not complete. Check failureReason (if available) for more details.
+  """
+  FAILED
+
+  """
+  The transfer session expired before it could be completed (e.g., upload window timed out or download link expired).
+  """
+  EXPIRED
+}
+
+"""
+The `Long` scalar type represents non-fractional signed whole 64-bit numeric values. Long can represent values between -(2^63) and 2^63 - 1.
+"""
+scalar Long
+
+scalar URL
+
+"""
+Represents a user profile in the system, containing personal and professional information about the user.
+"""
+type UserProfile {
+  """Represents the unique identifier for the user profile."""
+  id: ID!
+
+  """Represents the email address of the user profile."""
+  email: String!
+
+  """Represents the first name of the user profile."""
+  firstName: String
+
+  """Represents the last name of the user profile."""
+  lastName: String
+  dataRoomUsers(
+    """Returns the first _n_ elements from the list."""
+    first: Int
+
+    """Returns the elements in the list that come after the specified cursor."""
+    after: String
+
+    """Returns the last _n_ elements from the list."""
+    last: Int
+
+    """
+    Returns the elements in the list that come before the specified cursor.
+    """
+    before: String
+    where: DataRoomUserFilterInput
+  ): DataRoomUsersConnection
+}
+
+"""Represents a user in a DataRoom."""
+type DataRoomUser {
+  """The unique identifier for the DataRoom user."""
+  id: ID!
+
+  """The status of the DataRoom user."""
+  status: DataRoomUserStatus!
+
+  """Indicates whether the DataRoom user is verified."""
+  isVerified: Boolean!
+
+  """
+  Indicates whether the DataRoom user is allowed to access the DataRoom using the current ip address.
+  """
+  isIpAddressAllowed: Boolean!
+
+  """
+  The role code of the DataRoom user, which defines their permissions within the DataRoom.
+  """
+  roleCode: String!
+  qnaRoleCode: String
+
+  """The date and time when the DataRoom user last accessed the DataRoom."""
+  lastAccessedDate: DateTime
+
+  """The DataRoom to which this user belongs."""
+  dataRoom: DataRoom!
+}
+
+"""A connection to a list of items."""
+type DataRoomUsersConnection {
+  """Information to aid in pagination."""
+  pageInfo: PageInfo!
+
+  """A list of edges."""
+  edges: [DataRoomUsersEdge!]
+
+  """A flattened list of the nodes."""
+  nodes: [DataRoomUser!]
+}
+
+"""An edge in a connection."""
+type DataRoomUsersEdge {
+  """A cursor for use in pagination."""
+  cursor: String!
+
+  """The item at the end of the edge."""
+  node: DataRoomUser!
+}
+
+input DataRoomFilterInput {
+  """The status of the DataRoom."""
+  status: DataRoomStatusFilterInput
+}
+
+input DataRoomStatusFilterInput {
+  eq: DataRoomStatus
+}
+
+"""Represents a user in a DataRoom."""
+input DataRoomUserFilterInput {
+  """Filter by DataRoom user status."""
+  status: DataRoomUserStatusFilterInput
+
+  """Filter by whether the user is verified."""
+  isVerified: DataRoomUserQueryBoolFilterInput
+
+  """
+  Filter by whether the user is allowed to access the DataRoom using the current IP address.
+  """
+  isIpAddressAllowed: DataRoomUserQueryBoolFilterInput
+
+  """Filter by DataRoom properties."""
+  dataRoom: DataRoomFilterInput
+}
+
+input DataRoomUserQueryBoolFilterInput {
+  eq: Boolean
+}
+
+input DataRoomUserStatusFilterInput {
+  eq: DataRoomUserStatus
+}
+
+"""Represents the status of a DataRoom."""
+enum DataRoomStatus {
+  """The DataRoom is enabled."""
+  ENABLED
+
+  """The DataRoom is disabled."""
+  DISABLED
+}
+
+"""Represents the status of a user in a DataRoom."""
+enum DataRoomUserStatus {
+  """The user is enabled and can access the DataRoom."""
+  ENABLED
+
+  """The user is disabled and cannot access the DataRoom."""
+  DISABLED
+}
+
+"""
+Represents a document within the Data Room’s folder structure. This type
+implements the IDataRoomDocumentIndexItem interface and is a leaf node in
+the document index hierarchy. Documents are subject to security policies
+and visibility settings that determine how they can be accessed or
+downloaded by users, especially external participants.
+"""
+type DataRoomDocument implements IDataRoomDocumentIndexItem {
+  """The unique identifier for the document."""
+  id: ID!
+
+  """The current status of the document (Enabled or Disabled)."""
+  status: DataRoomDocumentIndexStatus!
+
+  """The display name of the document."""
+  name: String!
+
+  """
+  An optional index or reference number for ordering or display (e.g., "1.2.1").
+  """
+  number: String
+
+  """
+  Date when document was first added to the DataRoom.
+  Returned in UTC time zone.
+  
+  Only available for roles with access to Manage Documents, such as Administrator, Publisher and Viewer.
+  For other roles, such as Guest and Limited Viewer this field will always be null.
+  """
+  createdDate: DateTime
+
+  """
+  Date when document was last modified.
+  Modification can include changes to any of the document fields, such as content, name, number, enabled status or whenever a new file is uploaded.
+  Returned in UTC time zone.
+  
+  Guaranteed to be present for roles with access to Manage Documents, such as Administrator, Publisher and Viewer.
+  For other roles, such as Guest and Limited Viewer this field will return either of:
+  * Date the document was last enabled
+  * Date of last file upload
+  * null
+  What data would be returned depends on the settings configured by Administrator for the DataRoom.
+  """
+  lastModifiedDate: DateTime
+
+  """
+  ID of the parent folder that contains this document. null if it's
+  a root-level document.
+  """
+  parentId: ID
+
+  """
+  The file associated with this document, containing details like extension and size.
+  """
+  file: File!
+
+  """
+  Defines the document's access control and security settings, such as
+  watermarking, view-only restrictions, or print/download permissions.
+  """
+  securityPolicy: DataRoomDocumentSecurity!
+}
+
+"""
+Represents a folder within the Data Room's document index. Folders are hierarchical
+containers that may hold documents or other nested folders.
+This type implements the IDataRoomDocumentIndexItem interface and is used
+to structure the navigable view of the Data Room.
+"""
+type DataRoomFolder implements IDataRoomDocumentIndexItem {
+  """The unique identifier for the folder."""
+  id: ID!
+
+  """The current status of the folder (Enabled or Disabled)."""
+  status: DataRoomDocumentIndexStatus!
+
+  """The display name of the folder."""
+  name: String!
+
+  """
+  An optional index or reference number for ordering or display (e.g., "1.2.1").
+  """
+  number: String
+
+  """
+  Date the folder was first added to the DataRoom.
+  Returned in UTC time zone.
+  
+  Only available for roles with access to Manage Documents, such as Administrator, Publisher and Viewer.
+  For other roles, such as Guest and Limited Viewer this field will always be null.
+  """
+  createdDate: DateTime
+
+  """
+  Date when folder was last modified.
+  Modification can include changes to any of the folder fields, such as name, number or enabled status.
+  Returned in UTC time zone.
+  
+  Only available for roles with access to Manage Documents, such as Administrator, Publisher and Viewer.
+  For other roles, such as Guest and Limited Viewer this field will always be null.
+  """
+  lastModifiedDate: DateTime
+
+  """
+  Indicates whether the folder contains any child items (documents or folders).
+  """
+  hasChildren: Boolean!
+
+  """The ID of the parent folder. null if this is a root-level folder."""
+  parentId: ID
+}
