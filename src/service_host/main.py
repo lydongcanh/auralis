@@ -1,10 +1,14 @@
 from fastapi import FastAPI
+from dotenv import load_dotenv
 
 from core.infrastructure.proxies.ansarada.ansarada_api import AnsaradaApi
 from core.services.project_service import ProjectService
 from core.services.data_room_service import DataRoomService
 from core.models.data_room import DataRoom
 from core.models.project import Project
+
+
+load_dotenv()
 
 
 app = FastAPI()
