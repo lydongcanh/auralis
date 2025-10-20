@@ -8,45 +8,44 @@ class DataRoomRepository:
         self.db = database_client
 
     async def create_data_room_with_root_folder_async(self, data_room: DataRoomIn) -> DataRoom:
-        # First command: defer the constraint
-        defer_constraint_sql = 'SET CONSTRAINTS fk_data_room_root_folder DEFERRED'
-        
-        # Second command: execute the CTE with all operations
-        main_sql = '''
-            WITH RECURSIVE
-                data_room_insert AS (
-                    INSERT INTO data_rooms (name, source)
-                    VALUES (:name, :source)
-                    RETURNING id, created_at, updated_at
-                ),
-                folder_insert AS (
-                    INSERT INTO folders (name, data_room_id, parent_folder_id)
-                    SELECT 'Root', id, NULL FROM data_room_insert
-                    RETURNING id as folder_id, data_room_id
-                ),
-                data_room_update AS (
-                    UPDATE data_rooms 
-                    SET root_folder_id = folder_insert.folder_id
-                    FROM folder_insert
-                    WHERE data_rooms.id = folder_insert.data_room_id
-                    RETURNING data_rooms.*
-                )
-            SELECT 
-                id,
-                created_at,
-                updated_at,
-                root_folder_id
-            FROM data_room_update
-        '''
-        
-        params: dict[str, Any] | None = {"name": data_room.name, "source": data_room.source.value}
         commands: list[tuple[str, dict[str, Any] | None]] = [
-            (defer_constraint_sql, None),
-            (main_sql, params)
+            # Defer the foreign key constraint
+            ('SET CONSTRAINTS fk_data_room_root_folder DEFERRED', None),
+            
+            # Create data room
+            ('''
+                INSERT INTO data_rooms (name, source)
+                VALUES (:name, :source)
+                RETURNING id, created_at, updated_at
+            ''', {"name": data_room.name, "source": data_room.source.value}),
+
+            # Create root folder
+            ('''
+                INSERT INTO folders (name, data_room_id, parent_folder_id)
+                SELECT 'Root', d.id, NULL 
+                FROM data_rooms d 
+                WHERE d.name = :name AND d.source = :source
+                ORDER BY d.created_at DESC 
+                LIMIT 1
+                RETURNING id
+            ''', {"name": data_room.name, "source": data_room.source.value}),
+
+            # Set root folder ID in data room
+            ('''
+                UPDATE data_rooms 
+                SET root_folder_id = f.id
+                FROM folders f
+                WHERE data_rooms.name = :name 
+                AND data_rooms.source = :source
+                AND f.name = 'Root'
+                AND f.data_room_id = data_rooms.id
+                AND f.parent_folder_id IS NULL
+                RETURNING data_rooms.id, data_rooms.created_at, data_rooms.updated_at, data_rooms.root_folder_id
+            ''', {"name": data_room.name, "source": data_room.source.value})
         ]
-        
+
         results = await self.db.execute_transaction_async(commands)
-        result = results[1][0]  # Second command result, first row
+        result = results[3][0]
 
         return DataRoom(
             id=str(result["id"]),
