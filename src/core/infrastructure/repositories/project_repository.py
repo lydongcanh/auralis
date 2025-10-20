@@ -22,6 +22,21 @@ class ProjectRepository:
             accessible_user_project_ids=[]
         )
 
+    async def link_data_room_to_project_async(self, data_room_id: str, project_id: str) -> None:
+        sql = '''
+            INSERT INTO project_data_rooms (project_id, data_room_id)
+            VALUES (:project_id, :data_room_id)
+        '''
+        await self.db.execute_sql_async(sql, {"project_id": project_id, "data_room_id": data_room_id})
+
+
+    async def unlink_data_room_from_project_async(self, data_room_id: str, project_id: str) -> None:
+        sql = '''
+            DELETE FROM project_data_rooms
+            WHERE project_id = :project_id AND data_room_id = :data_room_id
+        '''
+        await self.db.execute_sql_async(sql, {"project_id": project_id, "data_room_id": data_room_id})
+
     async def get_project_by_id_async(self, project_id: str) -> Optional[Project]:
         sql = "SELECT * FROM projects WHERE id = :project_id"
         result = (await self.db.execute_sql_async(sql, {"project_id": project_id}))[0]

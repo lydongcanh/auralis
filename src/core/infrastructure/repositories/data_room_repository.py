@@ -57,6 +57,13 @@ class DataRoomRepository:
             root_folder_id=str(result["root_folder_id"]),
         )
 
+    async def link_data_room_to_project_async(self, data_room_id: str, project_id: str) -> None:
+        sql = '''
+            INSERT INTO project_data_rooms (project_id, data_room_id)
+            VALUES (:project_id, :data_room_id)
+        '''
+        await self.db.execute_sql_async(sql, {"project_id": project_id, "data_room_id": data_room_id})
+
     async def get_data_room_by_id_async(self, id: str) -> DataRoom | None:
         sql = "SELECT * FROM data_rooms WHERE id = :id"
         result = (await self.db.execute_sql_async(sql, {"id": id}))

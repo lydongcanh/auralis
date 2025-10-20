@@ -20,7 +20,10 @@ class DatabaseClient:
         async with self.engine.connect() as connection:
             result = await connection.execute(text(sql), params or {})
             await connection.commit()
-            rows = result.mappings().all()
+            try:
+                rows = result.mappings().all()
+            except Exception:
+                rows = []
             await connection.close()
             return [dict(row) for row in rows]
     
@@ -40,11 +43,9 @@ class DatabaseClient:
                 for sql, params in commands:
                     result = await connection.execute(text(sql), params or {})
                     try:
-                        # Try to get rows - some commands like SET don't return rows
                         rows = result.mappings().all()
                         results.append([dict(row) for row in rows])
                     except Exception:
-                        # Command doesn't return rows (like SET CONSTRAINTS)
                         results.append([])
             await connection.close()
             return results

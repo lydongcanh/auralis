@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from dotenv import load_dotenv
 
 from core.infrastructure.proxies.ansarada.ansarada_api import AnsaradaApi
@@ -23,6 +23,14 @@ app = FastAPI()
 @app.post("/projects")
 async def create_project_async(project: ProjectIn) -> Project:
     return await project_service.create_project_async(project)
+
+@app.post("/projects/{project_id}/data-rooms/{data_room_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def link_data_room_to_project_async(project_id: str, data_room_id: str) -> None:
+    return await project_service.link_data_room_to_project_async(data_room_id, project_id)
+
+@app.delete("/projects/{project_id}/data-rooms/{data_room_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def unlink_data_room_from_project_async(project_id: str, data_room_id: str) -> None:
+    await project_service.unlink_data_room_from_project_async(data_room_id, project_id)
 
 @app.get("/projects/{project_id}")
 async def get_project_by_id_async(project_id: str) -> Project | None:
