@@ -1,4 +1,5 @@
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncConnection, create_async_engine
+from typing import Any
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy import text
 
 from core.utils.env import get_required_env
@@ -22,3 +23,24 @@ class DatabaseClient:
             rows = result.mappings().all()
             await connection.close()
             return [dict(row) for row in rows]
+    
+    async def execute_transaction_async(self, commands: list[tuple[str, dict[str, Any] | None]]) -> list[list[dict]]:
+        """
+        Execute multiple SQL commands in a single transaction.
+        
+        Args:
+            commands: List of tuples where each tuple contains (sql_string, params_dict)
+        
+        Returns:
+            List of results for each command, where each result is a list of dictionaries
+        """
+        async with self.engine.connect() as connection:
+            async with connection.begin():
+                results = []
+                for sql, params in commands:
+                    result = await connection.execute(text(sql), params or {})
+                    rows = result.mappings().all()
+                    results.append([dict(row) for row in rows])
+            await connection.close()
+            return results
+        
