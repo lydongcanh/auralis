@@ -28,8 +28,7 @@ class ProjectRepository:
             VALUES (:project_id, :data_room_id)
         '''
         await self.db.execute_sql_async(sql, {"project_id": project_id, "data_room_id": data_room_id})
-
-
+        
     async def unlink_data_room_from_project_async(self, data_room_id: str, project_id: str) -> None:
         sql = '''
             DELETE FROM project_data_rooms

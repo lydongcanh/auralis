@@ -5,17 +5,21 @@ from core.infrastructure.proxies.ansarada.ansarada_api import AnsaradaApi
 from core.infrastructure.database.database_client import DatabaseClient
 from core.infrastructure.repositories.data_room_repository import DataRoomRepository
 from core.infrastructure.repositories.project_repository import ProjectRepository
+from core.infrastructure.repositories.user_repository import UserRepository
 from core.services.project_service import ProjectService
 from core.services.data_room_service import DataRoomService
+from core.services.user_service import UserService
 from core.models.data_room import DataRoom, DataRoomIn
 from core.models.project import Project, ProjectIn
+from core.models.user import User, UserIn
 
 
 load_dotenv()
 
 database_client = DatabaseClient()
-data_room_service = DataRoomService(DataRoomRepository(database_client), ansarada_api=AnsaradaApi())
+data_room_service = DataRoomService(DataRoomRepository(database_client), AnsaradaApi())
 project_service = ProjectService(ProjectRepository(database_client))
+user_service = UserService(UserRepository(database_client))
 
 app = FastAPI()
 
@@ -49,3 +53,13 @@ async def get_data_room_by_id_async(data_room_id: str) -> DataRoom | None:
 @app.get("/ansarada/data-rooms")
 async def get_ansarada_data_rooms_async(access_token: str, first: int = 10) -> list[DataRoom]:
     return await data_room_service.get_ansarada_data_rooms_async(access_token, first)
+
+
+# Users
+@app.post("/users")
+async def create_user_async(user: UserIn) -> User | None:
+    return await user_service.create_user_async(user)
+
+@app.get("/users/{user_id}")
+async def get_user_by_id_async(user_id: str) -> User | None:
+    return await user_service.get_user_async(user_id)
