@@ -1,6 +1,7 @@
 from typing import Optional
 from core.infrastructure.database.database_client import DatabaseClient
 from core.models.project import Project, ProjectIn
+from core.models.user_project import UserProjectIn
 from core.models.entity_status import EntityStatus
 
 class ProjectRepository:
@@ -35,6 +36,25 @@ class ProjectRepository:
             WHERE project_id = :project_id AND data_room_id = :data_room_id
         '''
         await self.db.execute_sql_async(sql, {"project_id": project_id, "data_room_id": data_room_id})
+
+    async def add_user_to_project_async(self, user_project: UserProjectIn) -> None:
+        sql = '''
+            INSERT INTO user_projects (project_id, user_id, user_role)
+            VALUES (:project_id, :user_id, :user_role)
+        '''
+        params = {
+            "project_id": user_project.project_id, 
+            "user_id": user_project.user_id, 
+            "user_role": user_project.user_role.value
+        }
+        await self.db.execute_sql_async(sql, params)
+
+    async def remove_user_from_project_async(self, user_id: str, project_id: str) -> None:
+        sql = '''
+            DELETE FROM user_projects
+            WHERE project_id = :project_id AND user_id = :user_id
+        '''
+        await self.db.execute_sql_async(sql, {"project_id": project_id, "user_id": user_id})
 
     async def get_project_by_id_async(self, project_id: str) -> Optional[Project]:
         sql = "SELECT * FROM projects WHERE id = :project_id"

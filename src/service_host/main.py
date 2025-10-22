@@ -1,4 +1,4 @@
-from fastapi import FastAPI, status
+from fastapi import FastAPI, Body, status
 from dotenv import load_dotenv
 
 from core.infrastructure.proxies.ansarada.ansarada_api import AnsaradaApi
@@ -12,7 +12,8 @@ from core.services.user_service import UserService
 from core.models.data_room import DataRoom, DataRoomIn
 from core.models.project import Project, ProjectIn
 from core.models.user import User, UserIn
-
+from core.models.user_project import UserProjectIn
+from core.models.user_role import UserRole
 
 load_dotenv()
 
@@ -35,6 +36,15 @@ async def link_data_room_to_project_async(project_id: str, data_room_id: str) ->
 @app.delete("/projects/{project_id}/data-rooms/{data_room_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def unlink_data_room_from_project_async(project_id: str, data_room_id: str) -> None:
     await project_service.unlink_data_room_from_project_async(data_room_id, project_id)
+
+@app.post("/projects/{project_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def add_user_to_project_async(project_id: str, user_id: str, user_role: UserRole = Body(..., embed=True)) -> None:
+    user_project = UserProjectIn(project_id=project_id, user_id=user_id, user_role=user_role)
+    return await project_service.add_user_to_project_async(user_project)
+
+@app.delete("/projects/{project_id}/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_user_from_project_async(project_id: str, user_id: str) -> None:
+    await project_service.remove_user_from_project_async(user_id, project_id)
 
 @app.get("/projects/{project_id}")
 async def get_project_by_id_async(project_id: str) -> Project | None:
