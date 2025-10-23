@@ -11,7 +11,7 @@ from core.services.data_room_service import DataRoomService
 from core.services.user_service import UserService
 from core.models.data_room import DataRoom, DataRoomIn
 from core.models.project import Project, ProjectIn
-from core.models.user import User, UserIn
+from core.models.user import User, UserAccessibleProjectOut, UserIn
 from core.models.user_project import UserProjectIn
 from core.models.user_role import UserRole
 
@@ -73,3 +73,7 @@ async def create_user_async(user: UserIn) -> User | None:
 @app.get("/users/{user_id}")
 async def get_user_by_id_async(user_id: str) -> User | None:
     return await user_service.get_user_async(user_id)
+
+@app.get("/users/{user_id}/projects")
+async def get_user_accessible_projects_async(user_id: str) -> list[UserAccessibleProjectOut]:
+    return await user_service.get_user_accessible_projects_async(user_id)
