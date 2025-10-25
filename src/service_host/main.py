@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Body, status
+from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from core.infrastructure.proxies.ansarada.ansarada_api import AnsaradaApi
@@ -23,6 +24,19 @@ project_service = ProjectService(ProjectRepository(database_client))
 user_service = UserService(UserRepository(database_client))
 
 app = FastAPI()
+
+# CORS
+origins = [
+    "http://localhost:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Projects
 @app.post("/projects")
