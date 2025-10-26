@@ -11,7 +11,7 @@ from core.services.project_service import ProjectService
 from core.services.data_room_service import DataRoomService
 from core.services.user_service import UserService
 from core.models.data_room import DataRoom, DataRoomIn
-from core.models.project import Project, ProjectIn
+from core.models.project import Project, ProjectIn, ProjectUserOut
 from core.models.user import User, UserAccessibleProjectOut, UserIn
 from core.models.user_project import UserProjectIn
 from core.models.user_role import UserRole
@@ -63,6 +63,14 @@ async def remove_user_from_project_async(project_id: str, user_id: str) -> None:
 @app.get("/projects/{project_id}")
 async def get_project_by_id_async(project_id: str) -> Project | None:
     return await project_service.get_project_by_id_async(project_id)
+
+@app.get("/projects/{project_id}/data-rooms")
+async def get_project_data_rooms_async(project_id: str) -> list[DataRoom]:
+    return await project_service.get_project_data_rooms_async(project_id)
+
+@app.get("/projects/{project_id}/users")
+async def get_project_users_async(project_id: str) -> list[ProjectUserOut]:
+    return await project_service.get_project_users_async(project_id)
 
 
 # Data Rooms

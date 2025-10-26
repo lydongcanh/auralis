@@ -1,5 +1,6 @@
 from core.infrastructure.repositories.project_repository import ProjectRepository
-from core.models.project import Project, ProjectIn
+from core.models.data_room import DataRoom
+from core.models.project import Project, ProjectIn, ProjectUserOut
 from core.models.user_project import UserProjectIn
 
 class ProjectService:
@@ -23,3 +24,9 @@ class ProjectService:
 
     async def get_project_by_id_async(self, project_id: str) -> Project | None:
         return await self.project_repository.get_project_by_id_async(project_id)
+    
+    async def get_project_data_rooms_async(self, project_id: str) -> list[DataRoom]:
+        return await self.project_repository.get_project_data_rooms_async(project_id)
+
+    async def get_project_users_async(self, project_id: str) -> list[ProjectUserOut]:
+        return await self.project_repository.get_project_users_async(project_id)
