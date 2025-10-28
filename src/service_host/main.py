@@ -4,23 +4,32 @@ from dotenv import load_dotenv
 
 from core.infrastructure.proxies.ansarada.ansarada_api import AnsaradaApi
 from core.infrastructure.database.database_client import DatabaseClient
+
 from core.infrastructure.repositories.data_room_repository import DataRoomRepository
 from core.infrastructure.repositories.project_repository import ProjectRepository
 from core.infrastructure.repositories.user_repository import UserRepository
+from core.infrastructure.repositories.document_tree_repository import DocumentTreeRepository
+
 from core.services.project_service import ProjectService
 from core.services.data_room_service import DataRoomService
 from core.services.user_service import UserService
+from core.services.document_tree_service import DocumentTreeService
+
 from core.models.data_room import DataRoom, DataRoomIn
 from core.models.project import Project, ProjectIn, ProjectUserOut
 from core.models.user import User, UserAccessibleProjectOut, UserIn
 from core.models.user_project import UserProjectIn
 from core.models.user_role import UserRole
+from core.models.document import Document, DocumentIn
+from core.models.folder import Folder, FolderIn
+from core.models.document_tree import DocumentTree
 
 load_dotenv()
 
 database_client = DatabaseClient()
 data_room_service = DataRoomService(DataRoomRepository(database_client), AnsaradaApi())
 project_service = ProjectService(ProjectRepository(database_client))
+document_tree_service = DocumentTreeService(DocumentTreeRepository(database_client))
 user_service = UserService(UserRepository(database_client))
 
 app = FastAPI()
@@ -99,3 +108,28 @@ async def get_user_by_id_async(user_id: str) -> User | None:
 @app.get("/users/{user_id}/projects")
 async def get_user_accessible_projects_async(user_id: str) -> list[UserAccessibleProjectOut]:
     return await user_service.get_user_accessible_projects_async(user_id)
+
+
+# Document Trees
+@app.post("/data-rooms/{data_room_id}/folders")
+async def create_folder_async(
+        data_room_id: str, 
+        name: str = Body(..., embed=True), 
+        parent_folder_id: str = Body(..., embed=True)
+    ) -> Folder | None:
+    folder = FolderIn(name=name, data_room_id=data_room_id, parent_folder_id=parent_folder_id)
+    return await document_tree_service.create_folder_async(folder)
+
+@app.post("/data-rooms/{data_room_id}/folders/{folder_id}/documents")
+async def create_document_async(
+        data_room_id: str,
+        folder_id: str,
+        name: str = Body(..., embed=True),
+        content: str = Body(..., embed=True),
+    ) -> Document | None:
+    document = DocumentIn(name=name, data_room_id=data_room_id, content=content, folder_id=folder_id)
+    return await document_tree_service.create_document_async(document)
+
+@app.get("/data-rooms/{data_room_id}/document-tree")
+async def get_document_tree_async(data_room_id: str) -> DocumentTree | None:
+    return await document_tree_service.get_document_tree_async(data_room_id)

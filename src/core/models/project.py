@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from core.models.base_entity import BaseEntity
+from core.models.entity_status import EntityStatus
 from core.models.user_role import UserRole
 
 class Project(BaseEntity):
@@ -17,3 +18,4 @@ class ProjectUserOut(BaseModel):
     user_id: str
     user_auth_provider_user_id: str
     user_role: UserRole
+    user_status: EntityStatus

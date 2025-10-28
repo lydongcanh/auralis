@@ -98,7 +98,7 @@ class ProjectRepository:
 
     async def get_project_users_async(self, project_id: str) -> list[ProjectUserOut]:
         sql = '''
-            SELECT u.id, u.auth_provider_user_id, up.user_role
+            SELECT u.id, u.auth_provider_user_id, up.user_role, u.status
             FROM users u
                 JOIN user_projects up ON u.id = up.user_id
             WHERE up.project_id = :project_id
@@ -111,5 +111,6 @@ class ProjectRepository:
         return [ProjectUserOut(
             user_id=str(result["id"]),
             user_auth_provider_user_id=result["auth_provider_user_id"],
-            user_role=result["user_role"]
+            user_role=result["user_role"],
+            user_status=result["status"]
         ) for result in results]

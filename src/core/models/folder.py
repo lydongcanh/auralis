@@ -1,3 +1,4 @@
+from pydantic import BaseModel
 from core.models.base_entity import BaseEntity
 
 class Folder(BaseEntity):
@@ -22,3 +23,8 @@ class Folder(BaseEntity):
     @property
     def is_empty(self):
         return not self.has_children_folders and not self.has_documents
+    
+class FolderIn(BaseModel):
+    name: str
+    data_room_id: str
+    parent_folder_id: str
