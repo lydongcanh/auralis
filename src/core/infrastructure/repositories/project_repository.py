@@ -2,7 +2,6 @@ from typing import Optional
 from core.infrastructure.database.database_client import DatabaseClient
 from core.models.project import Project, ProjectIn, ProjectUserOut
 from core.models.data_room import DataRoom
-from core.models.user import User, UserAccessibleProjectOut
 from core.models.user_project import UserProjectIn
 from core.models.entity_status import EntityStatus
 
@@ -94,6 +93,8 @@ class ProjectRepository:
             updated_at=data_room["updated_at"],
             status=data_room["status"],
             root_folder_id=str(data_room["root_folder_id"]),
+            client_id=data_room["client_id"],
+            client_secret=data_room["client_secret"]
         ) for data_room in results]
 
     async def get_project_users_async(self, project_id: str) -> list[ProjectUserOut]:
