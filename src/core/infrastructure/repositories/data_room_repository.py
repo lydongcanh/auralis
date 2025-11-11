@@ -14,10 +14,10 @@ class DataRoomRepository:
             
             # Create data room
             ('''
-                INSERT INTO data_rooms (name, source)
-                VALUES (:name, :source)
+                INSERT INTO data_rooms (name, source, client_id, client_secret)
+                VALUES (:name, :source, :client_id, :client_secret)
                 RETURNING id, created_at, updated_at
-            ''', {"name": data_room.name, "source": data_room.source.value}),
+            ''', {"name": data_room.name, "source": data_room.source.value, "client_id": data_room.client_id, "client_secret": data_room.client_secret}),
 
             # Create root folder
             ('''
@@ -55,6 +55,8 @@ class DataRoomRepository:
             created_at=result["created_at"],
             updated_at=result["updated_at"],
             root_folder_id=str(result["root_folder_id"]),
+            client_id=data_room.client_id,
+            client_secret=data_room.client_secret,
         )
 
     async def link_data_room_to_project_async(self, data_room_id: str, project_id: str) -> None:
@@ -83,4 +85,6 @@ class DataRoomRepository:
             updated_at=data_room["updated_at"],
             status=data_room["status"],
             root_folder_id=str(data_room["root_folder_id"]),
+            client_id=data_room["client_id"],
+            client_secret=data_room["client_secret"],
         )

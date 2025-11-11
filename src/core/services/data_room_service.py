@@ -32,6 +32,8 @@ class DataRoomService:
                 source=DataRoomSource.ANSARADA,
                 status=EntityStatus.ACTIVE,
                 root_folder_id="",
+                client_id=None,
+                client_secret=None
             ))
 
         return data_rooms
